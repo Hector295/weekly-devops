@@ -103,7 +103,7 @@ jobs:
           token: ${{ secrets.PAT_FOR_WORKFLOWS }}
           title: "📰 Artículo Semanal"
           body: "Generado automáticamente"
-          branch: "weekly-$(date +%Y%m%d)"
+          branch: "weekly-PR"
           base: main
           assignees: Hector295
           labels: automated

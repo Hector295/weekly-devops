@@ -94,6 +94,8 @@ jobs:
           && sudo apt update \
           && sudo apt install gh -y
       - name: Create Pull Request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           BRANCH_NAME="pr/semanal-$(date +%Y-%m-%d)"
           echo "Creando rama: $BRANCH_NAME"

@@ -22,133 +22,68 @@ jobs:
       - name: Install requests
         run: |
           pip install requests
-
       - name: Generate article with Gemini
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          python <<EOF
-          import requests
-          import json
-          from datetime import datetime
-          import os
+          # Llamar a Gemini para obtener título y contenido
+          RESPONSE=$(curl -s -X POST \
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "contents": [{
+                "parts": [{
+                  "text": "Sugiere un tema técnico sobre Docker, DevOps o Linux en español. Solo el título."
+                }]
+              }],
+              "generationConfig": {
+                "temperature": 0.7,
+                "maxOutputTokens": 100
+              }
+            }')
 
-          # Configuración
-          today = datetime.now()
-          date_str = today.strftime("%Y-%m-%d")
-          post_filename = f"_posts/{date_str}-articulo-tecnico.md"
-          log_file = "_data/topics-used.json"
+          TITLE=$(echo "$RESPONSE" | python3 -c "import sys, json; print(json.load(sys.stdin)['candidates'][0]['content']['parts'][0]['text'].strip().replace('#', ''))")
 
-          # Asegurar directorios
-          os.makedirs("_posts", exist_ok=True)
-          os.makedirs("_data", exist_ok=True)
+          # Verificar duplicados
+          if [ -f "_data/topics-used.json" ]; then
+            if grep -q "$TITLE" "_data/topics-used.json"; then
+              echo "Tema duplicado. Saliendo."
+              exit 0
+            fi
+          fi
 
-          # Cargar temas usados
-          used_topics = []
-          if os.path.exists(log_file):
-              with open(log_file, "r", encoding="utf-8") as f:
-                  try:
-                      used_topics = json.load(f)
-                  except json.JSONDecodeError:
-                      used_topics = []
+          # Generar contenido completo
+          FULL_RESPONSE=$(curl -s -X POST \
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "contents": [{
+                "parts": [{
+                  "text": "Escribe un artículo técnico en español sobre: '"$TITLE"'. Incluye requisitos, código, errores comunes, solución. Formato Markdown."
+                }]
+              }],
+              "generationConfig": {
+                "temperature": 0.7,
+                "maxOutputTokens": 1500
+              }
+            }')
 
-          titles_used = [item["title"].lower() for item in used_topics]
+          CONTENT=$(echo "$FULL_RESPONSE" | python3 -c "import sys, json; print(json.load(sys.stdin)['candidates'][0]['content']['parts'][0]['text'].strip())")
 
-          # === Generar nuevo tema con Gemini ===
-          GEMINI_API_KEY = os.environ['GEMINI_API_KEY']
-          url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+          # Crear archivo con front matter
+          DATE=$(date +"%Y-%m-%d")
+          FILENAME="_posts/${DATE}-articulo-tecnico.md"
+          echo "---" > "$FILENAME"
+          echo "title: $TITLE" >> "$FILENAME"
+          echo "date: $(date +"%Y-%m-%d %H:%M:%S")" >> "$FILENAME"
+          echo "---" >> "$FILENAME"
+          echo "" >> "$FILENAME"
+          echo "$CONTENT" >> "$FILENAME"
 
-          # Paso 1: Elegir tema nuevo
-          prompt_temas = f"""
-          Eres un experto en DevOps, Docker y Linux. Sugiere UN solo tema técnico original para un artículo en español.
-
-          Evita estos temas (ya usados):
-          {', '.join(titles_used) if titles_used else 'Ninguno'}
-
-          Ejemplos:
-          - Cómo desplegar Redis con persistencia en Docker
-          - Automatizar respaldos de PostgreSQL con cron
-          - Configurar Traefik como reverse proxy con SSL
-
-          Responde SOLO con el título del artículo.
-          """
-
-          payload = {
-              "contents": [{"parts": [{"text": prompt_temas}]}],
-              "generationConfig": {"temperature": 0.7, "maxOutputTokens": 100}
-          }
-
-          headers = {"Content-Type": "application/json"}
-          response = requests.post(f"{url}?key={GEMINI_API_KEY}", json=payload, headers=headers)
-
-          if response.status_code != 200:
-              print("Error con Gemini:", response.text)
-              exit(1)
-
-          try:
-              result = response.json()
-              title = result['candidates'][0]['content']['parts'][0]['text'].strip()
-              title = title.replace('#', '').strip()
-          except:
-              print("No se pudo extraer el título.")
-              exit(1)
-
-          if title.lower() in titles_used:
-              print("Tema duplicado. Abortando.")
-              exit(0)
-
-          # Paso 2: Generar contenido completo
-          prompt_contenido = f"""
-          Escribe un artículo técnico en español, en formato Markdown, titulado:
-
-          # {title}
-
-          Estilo: como si un desarrollador real lo hubiera probado.
-          Incluye:
-          - Introducción breve
-          - Requisitos
-          - Estructura de carpetas
-          - Código real (en bloques: yaml, bash, etc.)
-          - Errores comunes y soluciones
-          - Conclusión útil
-          """
-
-          payload_full = {
-              "contents": [{"parts": [{"text": prompt_contenido}]}],
-              "generationConfig": {"temperature": 0.7, "maxOutputTokens": 1500}
-          }
-
-          response_full = requests.post(f"{url}?key={GEMINI_API_KEY}", json=payload_full, headers=headers)
-          if response_full.status_code != 200:
-              print("Error generando contenido:", response_full.text)
-              exit(1)
-
-          try:
-              full_content = response_full.json()['candidates'][0]['content']['parts'][0]['text'].strip()
-          except:
-              print("No se pudo generar el contenido.")
-              exit(1)
-
-          # Guardar artículo
-          with open(post_filename, "w", encoding="utf-8") as f:
-              f.write(f"""---
-title: {title}
-date: {today.strftime('%Y-%m-%d %H:%M:%S')}
----
-
-{full_content}""")
-
-          # Actualizar historial
-          used_topics.append({
-              "title": title,
-              "date": date_str
-          })
-          with open(log_file, "w", encoding="utf-8") as f:
-              json.dump(used_topics, f, indent=2, ensure_ascii=False)
-
-          print(f"✅ Artículo generado: {title}")
-          EOF
-
+          # Actualizar topics-used.json
+          jq --arg t "$TITLE" --arg d "$DATE" \
+            '. += [{"title": $t, "date": $d}]' \
+            _data/topics-used.json > tmp.$$.json && mv tmp.$$.json _data/topics-used.json || echo '[{"title": "'"$TITLE"'", "date": "'"$DATE"'"}]' > _data/topics-used.json
       - name: Create Pull Request
         uses: peter-evans/create-pull-request@v5
         with:

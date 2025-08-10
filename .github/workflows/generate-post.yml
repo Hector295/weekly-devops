@@ -1,0 +1,165 @@
+name: Generar artículo semanal
+
+on:
+  schedule:
+    - cron: '0 8 * * 1'  # Cada lunes a las 8:00 AM UTC
+  workflow_dispatch:     # Para probar manualmente
+
+jobs:
+  generate-post:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install requests
+        run: |
+          pip install requests
+
+      - name: Generate article with Gemini
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          python <<EOF
+          import requests
+          import json
+          from datetime import datetime
+          import os
+
+          # Configuración
+          today = datetime.now()
+          date_str = today.strftime("%Y-%m-%d")
+          post_filename = f"_posts/{date_str}-articulo-tecnico.md"
+          log_file = "_data/topics-used.json"
+
+          # Asegurar directorios
+          os.makedirs("_posts", exist_ok=True)
+          os.makedirs("_data", exist_ok=True)
+
+          # Cargar temas usados
+          used_topics = []
+          if os.path.exists(log_file):
+              with open(log_file, "r", encoding="utf-8") as f:
+                  try:
+                      used_topics = json.load(f)
+                  except json.JSONDecodeError:
+                      used_topics = []
+
+          titles_used = [item["title"].lower() for item in used_topics]
+
+          # === Generar nuevo tema con Gemini ===
+          GEMINI_API_KEY = os.environ['GEMINI_API_KEY']
+          url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+
+          # Paso 1: Elegir tema nuevo
+          prompt_temas = f"""
+          Eres un experto en DevOps, Docker y Linux. Sugiere UN solo tema técnico original para un artículo en español.
+
+          Evita estos temas (ya usados):
+          {', '.join(titles_used) if titles_used else 'Ninguno'}
+
+          Ejemplos:
+          - Cómo desplegar Redis con persistencia en Docker
+          - Automatizar respaldos de PostgreSQL con cron
+          - Configurar Traefik como reverse proxy con SSL
+
+          Responde SOLO con el título del artículo.
+          """
+
+          payload = {
+              "contents": [{"parts": [{"text": prompt_temas}]}],
+              "generationConfig": {"temperature": 0.7, "maxOutputTokens": 100}
+          }
+
+          headers = {"Content-Type": "application/json"}
+          response = requests.post(f"{url}?key={GEMINI_API_KEY}", json=payload, headers=headers)
+
+          if response.status_code != 200:
+              print("Error con Gemini:", response.text)
+              exit(1)
+
+          try:
+              result = response.json()
+              title = result['candidates'][0]['content']['parts'][0]['text'].strip()
+              title = title.replace('#', '').strip()
+          except:
+              print("No se pudo extraer el título.")
+              exit(1)
+
+          if title.lower() in titles_used:
+              print("Tema duplicado. Abortando.")
+              exit(0)
+
+          # Paso 2: Generar contenido completo
+          prompt_contenido = f"""
+          Escribe un artículo técnico en español, en formato Markdown, titulado:
+
+          # {title}
+
+          Estilo: como si un desarrollador real lo hubiera probado.
+          Incluye:
+          - Introducción breve
+          - Requisitos
+          - Estructura de carpetas
+          - Código real (en bloques: yaml, bash, etc.)
+          - Errores comunes y soluciones
+          - Conclusión útil
+          """
+
+          payload_full = {
+              "contents": [{"parts": [{"text": prompt_contenido}]}],
+              "generationConfig": {"temperature": 0.7, "maxOutputTokens": 1500}
+          }
+
+          response_full = requests.post(f"{url}?key={GEMINI_API_KEY}", json=payload_full, headers=headers)
+          if response_full.status_code != 200:
+              print("Error generando contenido:", response_full.text)
+              exit(1)
+
+          try:
+              full_content = response_full.json()['candidates'][0]['content']['parts'][0]['text'].strip()
+          except:
+              print("No se pudo generar el contenido.")
+              exit(1)
+
+          # Guardar artículo
+          with open(post_filename, "w", encoding="utf-8") as f:
+              f.write(f"""---
+title: {title}
+date: {today.strftime('%Y-%m-%d %H:%M:%S')}
+---
+
+{full_content}""")
+
+          # Actualizar historial
+          used_topics.append({
+              "title": title,
+              "date": date_str
+          })
+          with open(log_file, "w", encoding="utf-8") as f:
+              json.dump(used_topics, f, indent=2, ensure_ascii=False)
+
+          print(f"✅ Artículo generado: {title}")
+          EOF
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: pr/semanal-$(date +%Y-%m-%d)
+          title: "📰 Nuevo artículo técnico generado automáticamente"
+          body: |
+            Este artículo fue generado por IA (Gemini).
+
+            Por favor, revísalo antes de hacer merge.
+
+            @hectorvc  <!-- Cambia por tu usuario si es diferente -->
+          assignees: hectorvc
+          commit-message: "Generar artículo semanal con Gemini"

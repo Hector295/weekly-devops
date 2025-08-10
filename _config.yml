@@ -1,0 +1,23 @@
+title: Blog DevOps Automático
+email: hectorvc295@gmail.com
+description: >-
+  Blog técnico semanal sobre Docker, Linux, DevOps y automatización.
+baseurl: ""
+url: "https://Hector295.github.io/weekly-devops"  # ← Cambia "hectorvc" por tu usuario
+github_username:  Hector295
+
+# Tema
+theme: minima
+
+# Markdown
+markdown: kramdown
+
+# Plugins
+plugins:
+  - jekyll-feed
+  - jekyll-sitemap
+
+# Exclusión de archivos
+exclude:
+  - README.md
+  - .github/

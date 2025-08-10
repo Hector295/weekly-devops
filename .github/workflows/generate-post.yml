@@ -97,25 +97,13 @@ jobs:
           && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
           && sudo apt update \
           && sudo apt install gh -y
-      - name: Create Pull Request
-        env:
-          GH_TOKEN: ${{ secrets.PAT_FOR_WORKFLOWS }}
-        run: |
-          BRANCH_NAME="pr/semanal-$(date +%Y-%m-%d)"
-          echo "Creando rama: $BRANCH_NAME"
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git checkout -b "$BRANCH_NAME"
-          git add .
-          git commit -m "Generar artículo semanal con Gemini" || echo "No changes to commit"
-
-          git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" "$BRANCH_NAME"
-
-          gh pr create \
-            --title "📰 Nuevo artículo técnico generado automáticamente" \
-            --body "Este artículo fue generado por IA (Gemini)" \
-            --assignee "Hector295" \
-            --base "main" \
-            --head "$BRANCH_NAME"
+      - name: Create PR
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.PAT_FOR_WORKFLOWS }}
+          title: "📰 Artículo Semanal"
+          body: "Generado automáticamente"
+          branch: "weekly-$(date +%Y%m%d)"
+          base: main
+          assignees: Hector295
+          labels: automated

@@ -60,7 +60,7 @@ jobs:
             -d '{
               "contents": [{
                 "parts": [{
-                  "text": "Escribe un artículo técnico en español sobre: '"$TITLE"'. Incluye requisitos, código, errores comunes, solución. Formato Markdown."
+                  "text": "Escribe un artículo técnico en español sobre: '"$TITLE"'. Incluye requisitos, código, errores comunes, solución. Que esto sea algo completo y muy informativo. Usa Warnings, notes, info. Agrega tambien algo de buenas practicas. Formato Markdown."
                 }]
               }],
               "generationConfig": {

@@ -86,18 +86,20 @@ jobs:
             '. += [{"title": $t, "date": $d}]' \
             _data/topics-used.json > tmp.$$.json && mv tmp.$$.json _data/topics-used.json || echo '[{"title": "'"$TITLE"'", "date": "'"$DATE"'"}]' > _data/topics-used.json
       - name: Create Pull Request
+        run: |
+          BRANCH_NAME="pr/semanal-$(date +%Y-%m-%d)"
+          echo "Creando rama: $BRANCH_NAME"
+
+          # Hacer checkout de la rama nueva
+          git checkout -b "$BRANCH_NAME"
+
+          # Subir la rama
+          git push origin "$BRANCH_NAME"
+
+          # Crear PR
+          gh pr create \
+            --title "📰 Nuevo artículo técnico generado automáticamente" \
+            --body "Este artículo fue generado por IA (Gemini).\n\nPor favor, revísalo antes de hacer merge.\n\n@Hector295" \
+            --assignees "Hector295"
         env:
-          BRANCH_NAME: pr/semanal-$(date +%Y-%m-%d)
-        uses: peter-evans/create-pull-request@v5
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          branch: ${{ env.BRANCH_NAME }}
-          title: "📰 Nuevo artículo técnico generado automáticamente"
-          body: |
-            Este artículo fue generado por IA (Gemini).
-
-            Por favor, revísalo antes de hacer merge.
-
-            @Hector295
-          assignees: Hector295
-          commit-message: "Generar artículo semanal con Gemini"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

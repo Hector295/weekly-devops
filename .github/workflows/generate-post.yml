@@ -110,6 +110,6 @@ jobs:
           gh pr create \
             --title "📰 Nuevo artículo técnico generado automáticamente" \
             --body "Este artículo fue generado por IA (Gemini)" \
-            --assignee "Hector295" \ 
+            --assignee "Hector295" \
             --base "main" \
             --head "$BRANCH_NAME"

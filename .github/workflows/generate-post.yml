@@ -97,19 +97,20 @@ jobs:
         run: |
           BRANCH_NAME="pr/semanal-$(date +%Y-%m-%d)"
           echo "Creando rama: $BRANCH_NAME"
-          
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          
+
           git checkout -b "$BRANCH_NAME"
           git add .
           git commit -m "Generar artículo semanal con Gemini" || echo "No changes to commit"
-          
-          # Push con token
+
           git push "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" "$BRANCH_NAME"
-          
-          # Crear PR
+
+          # Comando corregido (--assignee en lugar de --assignees)
           gh pr create \
             --title "📰 Nuevo artículo técnico generado automáticamente" \
             --body "Este artículo fue generado por IA (Gemini).\n\nPor favor, revísalo antes de hacer merge.\n\n@Hector295" \
-            --assignees "Hector295"
+            --assignee "Hector295" \ 
+            --base "main" \
+            --head "$BRANCH_NAME"

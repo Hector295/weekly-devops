@@ -99,9 +99,12 @@ jobs:
           && sudo apt install gh -y
       - name: Create PR
         uses: peter-evans/create-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_FOR_WORKFLOWS }}
         with:
           token: ${{ secrets.PAT_FOR_WORKFLOWS }}
           title: "📰 Artículo Semanal"
+          delete-branch: true
           body: "Generado automáticamente"
           branch: "weekly-PR"
           base: main

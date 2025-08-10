@@ -90,11 +90,15 @@ jobs:
           BRANCH_NAME="pr/semanal-$(date +%Y-%m-%d)"
           echo "Creando rama: $BRANCH_NAME"
 
-          # Hacer checkout de la rama nueva
-          git checkout -b "$BRANCH_NAME"
+          git config user.name "Hector295"
+          git config user.email "Hector295@users.noreply.github.com"
 
-          # Subir la rama
-          git push origin "$BRANCH_NAME"
+          git checkout -b "$BRANCH_NAME"
+          git add .
+          git commit -m "Generar artículo semanal con Gemini" || echo "No changes to commit"
+
+          # Push con token
+          git push "https://x-access-token:${GITHUB_TOKEN}@github.com/Hector295/weekly-devops.git" "$BRANCH_NAME"
 
           # Crear PR
           gh pr create \

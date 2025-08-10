@@ -86,16 +86,18 @@ jobs:
             '. += [{"title": $t, "date": $d}]' \
             _data/topics-used.json > tmp.$$.json && mv tmp.$$.json _data/topics-used.json || echo '[{"title": "'"$TITLE"'", "date": "'"$DATE"'"}]' > _data/topics-used.json
       - name: Create Pull Request
+        env:
+          BRANCH_NAME: pr/semanal-$(date +%Y-%m-%d)
         uses: peter-evans/create-pull-request@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          branch: pr/semanal-$(date +%Y-%m-%d)
+          branch: ${{ env.BRANCH_NAME }}
           title: "📰 Nuevo artículo técnico generado automáticamente"
           body: |
             Este artículo fue generado por IA (Gemini).
 
             Por favor, revísalo antes de hacer merge.
 
-            @hectorvc  <!-- Cambia por tu usuario si es diferente -->
-          assignees: hectorvc
+            @Hector295
+          assignees: Hector295
           commit-message: "Generar artículo semanal con Gemini"
